@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#120f0d">
+  <meta name="description" content="Jadi photographer kami. Kongsi kenangan majlis Luqman Hakim & Nurul Izzati.">
+  <title>Luqman & Izzati · Walimatulurus</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=Pinyon+Script&family=Manrope:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+<svg class="svg-library" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><defs>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M8 5 9.5 3h5L16 5h4a1 1 0 0 1 1 1v13H3V6a1 1 0 0 1 1-1Z"/><circle cx="12" cy="12" r="4"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="1.5"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="1.5"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="1.5"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4Z"/><path d="m13.5 6.5 4 4"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c.6-3.6 3-5.6 6-5.6s5.4 2 6 5.6"/><circle cx="17" cy="9" r="2.4"/><path d="M16.5 14.3c2.5.1 4 1.8 4.5 4.7"/></symbol>
+  <symbol id="i-flip" viewBox="0 0 24 24"><path d="M4 9a8 8 0 0 1 14-3l2 2M20 15a8 8 0 0 1-14 3l-2-2"/><path d="M20 4v4h-4M4 20v-4h4"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.6"/><path d="m3 17 6-6 4 4 3-3 5 5"/></symbol>
+</defs></svg>
+
+<div class="grain" aria-hidden="true"></div>
+
+<main class="home" id="home">
+  <figure class="cover" aria-hidden="true">
+    <img id="cover-img" alt="" fetchpriority="high">
+    <div class="cover-fallback"><span>L</span><em>&amp;</em><span>I</span></div>
+    <i class="leak leak-a"></i><i class="leak leak-b"></i>
+  </figure>
+
+  <section class="intro">
+    <p class="eyebrow reveal" style="--d:0" data-content="eyebrow">MAJLIS WALIMATULURUS</p>
+    <h1 class="reveal" style="--d:1"><span data-content="groomShort">Luqman Hakim</span> <em>&amp;</em> <span data-content="brideShort">Nurul Izzati</span></h1>
+    <p class="date reveal" style="--d:2" data-content="dateShort">14 NOVEMBER 2026</p>
+    <p class="thanks reveal" style="--d:3">Terima kasih sudi hadir memeriahkan majlis dan menjadi sebahagian daripada kenangan terindah kami.</p>
+
+    <div class="film-meter reveal" style="--d:4" aria-live="polite">
+      <div class="film-strip" id="film-strip" aria-hidden="true"></div>
+      <p class="film-label"><b data-film-left>10</b> <span id="film-label-text">KEPING FILEM UNTUK ANDA</span></p>
+    </div>
+
+    <form class="start reveal" style="--d:5" id="start-form" novalidate>
+      <label class="sr-only" for="guest-name">Nama anda</label>
+      <input id="guest-name" autocomplete="name" maxlength="60" placeholder="Nama anda" enterkeyhint="go">
+      <p class="start-hint" id="start-hint" hidden>Isi nama anda dahulu</p>
+      <button type="submit" class="cta" id="cta"><span>Jadi photographer kami</span><i class="heart" aria-hidden="true">❤️</i></button>
+    </form>
+
+    <nav class="tiles reveal" style="--d:6" aria-label="Menu album">
+      <button class="tile" data-open="mine"><svg class="icon" aria-hidden="true"><use href="#i-grid"/></svg><span>ALBUM SAYA</span><small id="mine-count"></small></button>
+      <button class="tile" data-open="wishes"><svg class="icon" aria-hidden="true"><use href="#i-pen"/></svg><span>UCAPAN</span><small id="wish-count-tile"></small></button>
+      <button class="tile wide" data-open="all"><svg class="icon" aria-hidden="true"><use href="#i-people"/></svg><span>ALBUM TETAMU LAIN</span><small id="all-count"></small></button>
+    </nav>
+
+    <p class="foot reveal" style="--d:7">Tiada app perlu dipasang. Kamera terus buka dalam browser ini.</p>
+    <p class="mock-note" id="mock-note">Mod demo · Gambar &amp; ucapan disimpan dalam pelayar ini sahaja.</p>
+  </section>
+</main>
+
+<!-- Kamera pakai buang -->
+<section class="camera" id="camera" hidden aria-label="Kamera">
+  <div class="vf-stage">
+    <div class="vf-box" id="vf-box">
+      <div class="vf-photo">
+        <video id="viewfinder" playsinline muted autoplay></video>
+        <div class="vf-corners" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <canvas class="tpl tpl-klasik" id="tpl-canvas" aria-hidden="true"></canvas>
+        <span class="vf-stamp" aria-hidden="true" data-content="stamp"></span>
+      </div>
+      <div class="tpl tpl-polaroid" aria-hidden="true"><b data-frame-names>Luqman &amp; Izzati</b><small data-frame-line></small></div>
+      <div class="tpl tpl-filem" aria-hidden="true"><small class="t-left" data-frame-line></small><small class="t-right">KENANGAN 400</small><b class="b-left" data-frame-names>Luqman &amp; Izzati</b><b class="b-right" id="vf-frame-no">▸ 01/10</b></div>
+    </div>
+  </div>
+  <div class="tpl-switch" role="radiogroup" aria-label="Templat gambar">
+    <button role="radio" data-template="klasik">Klasik</button>
+    <button role="radio" data-template="polaroid">Polaroid</button>
+    <button role="radio" data-template="filem">Filem</button>
+    <button role="radio" data-template="tiada">Tiada</button>
+  </div>
+  <div class="cam-top">
+    <button class="cam-round" id="cam-close" aria-label="Tutup kamera">×</button>
+    <div class="cam-counter" aria-live="polite"><b id="cam-left">10</b><small>KEPING LAGI</small></div>
+    <button class="cam-pill" id="cam-stamp" aria-pressed="true">Cop tarikh</button>
+  </div>
+  <div class="cam-msg" id="cam-msg" hidden>
+    <p id="cam-msg-text">Kamera tidak dapat dibuka dalam browser ini.</p>
+    <button class="cta small" id="cam-native">Buka kamera telefon</button>
+  </div>
+  <div class="cam-bottom">
+    <button class="cam-round" id="cam-library" aria-label="Pilih gambar dari telefon"><svg class="icon" aria-hidden="true"><use href="#i-image"/></svg></button>
+    <button class="shutter" id="shutter" aria-label="Ambil gambar"><span></span></button>
+    <button class="cam-round" id="cam-flip" aria-label="Tukar kamera depan atau belakang"><svg class="icon" aria-hidden="true"><use href="#i-flip"/></svg></button>
+  </div>
+  <div class="cam-last" id="cam-last" aria-hidden="true"></div>
+  <div class="iris" id="iris" aria-hidden="true"></div>
+  <div class="flash" id="flash" aria-hidden="true"></div>
+</section>
+
+<!-- Panel album & ucapan -->
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+  <header class="sheet-head">
+    <span class="grabber" aria-hidden="true"></span>
+    <div><p class="eyebrow" id="sheet-eyebrow"></p><h2 id="sheet-title"></h2></div>
+    <button class="sheet-close" id="sheet-close" aria-label="Tutup">×</button>
+  </header>
+
+  <div class="pane" data-pane="album">
+    <div id="upload-tray" class="upload-tray" aria-label="Status muat naik" hidden></div>
+    <button id="new-photos" class="new-photos" hidden></button>
+    <div id="gallery-grid" class="gallery-grid"></div>
+    <div class="empty" id="empty-state" hidden>
+      <p id="empty-text">Belum ada gambar lagi.</p>
+      <button class="cta small" data-action="camera">Ambil gambar pertama</button>
+    </div>
+    <div id="gallery-sentinel"><button id="load-more" class="ghost" hidden>Lihat lagi ↓</button></div>
+  </div>
+
+  <div class="pane" data-pane="wishes">
+    <form id="wish-form" class="wish-form">
+      <label class="sr-only" for="wish-name">Nama anda</label>
+      <input id="wish-name" autocomplete="name" maxlength="60" placeholder="Nama anda" required>
+      <label class="sr-only" for="wish-message">Ucapan &amp; doa</label>
+      <textarea id="wish-message" maxlength="500" rows="3" placeholder="Titipkan ucapan &amp; doa buat pengantin…" required></textarea>
+      <div class="wish-actions"><span id="wish-count">0/500</span><button type="submit" class="cta small">Hantar ucapan</button></div>
+    </form>
+    <ul id="wish-list" class="wish-list"></ul>
+    <p class="empty" id="wish-empty">Belum ada ucapan. Jadilah yang pertama ✍️</p>
+  </div>
+</dialog>
+
+<dialog id="lightbox" class="lightbox" aria-label="Paparan gambar">
+  <div class="lightbox-top"><span id="lightbox-counter"></span><button class="sheet-close" id="close-lightbox" aria-label="Tutup gambar">×</button></div>
+  <div id="lightbox-stage"><button class="lightbox-prev" aria-label="Gambar sebelumnya">‹</button><img id="lightbox-image" alt=""><button class="lightbox-next" aria-label="Gambar seterusnya">›</button></div>
+  <div class="lightbox-bottom"><div><strong id="lightbox-name"></strong><p id="lightbox-time"></p></div><div class="lightbox-actions"><a class="ghost" id="download-photo" download>Muat turun ↓</a><button class="ghost" id="share-photo">Kongsi ↗</button></div></div>
+</dialog>
+
+<input id="photo-input" type="file" accept="image/*" multiple hidden>
+<input id="camera-input" type="file" accept="image/*" capture="environment" hidden>
+<div id="upload-pill" class="upload-pill" role="status" hidden></div>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="petals" aria-hidden="true"></div>
+
+<section id="slideshow" class="slideshow" hidden aria-label="Paparan slaid">
+  <div class="slide-layer"></div><div class="slide-layer"></div>
+  <div class="slide-empty"><p class="eyebrow">ALBUM TETAMU</p><h1 id="slide-title">Luqman <em>&amp;</em> Izzati</h1><p>Kenangan anda bakal menghiasi layar ini.</p></div>
+  <div class="slide-brand"><span id="slide-names"></span><small data-content="dateShort"></small></div>
+  <div class="slide-qr"><canvas id="qr-canvas" width="180" height="180" aria-label="Kod QR untuk jadi photographer"></canvas><span>Imbas &amp; jadi photographer kami</span><small id="slide-url"></small></div>
+  <button id="fullscreen-button" class="ghost">Skrin penuh ⛶</button>
+</section>
+</body>
+</html>
