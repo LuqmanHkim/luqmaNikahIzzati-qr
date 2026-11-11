@@ -3,7 +3,7 @@
    getActiveSpreadsheet() merujuk Sheet tersebut. Lihat SETUP.md untuk langkah penuh.
    Deploy: Web app · Execute as: Me · Who has access: Anyone. */
 
-const FOLDER_ID = 'GANTI_DENGAN_ID_FOLDER_DRIVE'; // ID folder Drive untuk simpan gambar
+const FOLDER_ID = '1xlx5zbmss0FW0NwjgNUNhn56qGuO5sWX'; // ID folder Drive untuk simpan gambar
 const FILM_LIMIT = 10;                 // Had gambar bagi setiap tetamu
 const WISH_LIMIT = 5;                  // Had ucapan bagi setiap tetamu
 const MAX_BYTES = 8 * 1024 * 1024;     // Saiz maksimum satu gambar selepas mampatan
