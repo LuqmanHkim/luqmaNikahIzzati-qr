@@ -132,6 +132,12 @@ const localWishes = {
   get() { try { return JSON.parse(storage.get('walimah-wishes') || '[]'); } catch { return []; } },
   set(list) { storage.set('walimah-wishes', JSON.stringify(list)); }
 };
+/* Salinan terakhir senarai daripada pelayan, supaya album & ucapan dipapar serta-merta
+   sementara Apps Script (1–3 saat) dihubungi. Mod demo tidak memerlukannya. */
+const cache = {
+  get(key) { if (!CONFIG.API_BASE_URL) return null; try { return JSON.parse(storage.get(`walimah-cache-${key}`)); } catch { return null; } },
+  set(key, value) { if (CONFIG.API_BASE_URL) storage.set(`walimah-cache-${key}`, JSON.stringify(value)); }
+};
 const api = {
   async uploadPhoto(job, data) {
     const meta = { guestName: job.guestName || 'Tetamu', guestId, width: data.width, height: data.height };
@@ -215,7 +221,7 @@ function updateQueue() {
     if (!node) {
       node = document.createElement('div'); node.className = 'upload-item';
       const img = document.createElement('img'); img.alt = '';
-      let url = queuePreviewUrls.get(job.id); if (!url && (job.thumbnail || job.file)) { url = URL.createObjectURL(job.thumbnail || job.file); queuePreviewUrls.set(job.id, url); }
+      let url = queuePreviewUrls.get(job.id); const source = job.thumbnail || job.file || job.compressed; if (!url && source) { url = URL.createObjectURL(source); queuePreviewUrls.set(job.id, url); }
       if (url) img.src = url;
       const label = document.createElement('span');
       const retry = document.createElement('button'); retry.textContent = 'Cuba semula'; retry.hidden = true;
@@ -295,6 +301,7 @@ function renderFilm() {
   });
   $('#film-label-text').textContent = left === 0 ? 'FILEM HABIS · TERIMA KASIH!' : left === CONFIG.filmLimit ? 'KEPING FILEM UNTUK ANDA' : left === 1 ? 'KEPING TERAKHIR' : 'KEPING FILEM LAGI';
   $('#cam-left').textContent = left;
+  $('#mine-count').textContent = filmUsed ? `${filmUsed}/${CONFIG.filmLimit}` : '';
   document.body.classList.toggle('film-empty', left === 0);
   if (!cameraEl.hidden) layoutViewfinder();
   if (lastLeft !== null && left !== lastLeft) { const counter = $('.cam-counter'); counter.classList.remove('tick'); void counter.offsetWidth; counter.classList.add('tick'); }
@@ -302,7 +309,7 @@ function renderFilm() {
 }
 async function syncFilm() { try { filmUsed = await api.filmUsed(); } catch { /* Kekalkan kiraan setempat. */ } renderFilm(); }
 
-async function enqueue(files) {
+async function enqueue(files, prepared = null) {
   let accepted = files.filter(f => f.type.startsWith('image/') || /\.(heic|heif|jpe?g|png|webp|avif)$/i.test(f.name));
   if (accepted.length !== files.length) toast('Sila pilih fail gambar sahaja.');
   const left = filmLeft();
@@ -311,6 +318,8 @@ async function enqueue(files) {
   let added = 0;
   for (const file of accepted) {
     const job = { id: makeId(), name: file.name, file, guestName, createdAt: new Date().toISOString(), status: 'waiting', attempts: 0, nextRetry: 0, progress: 0 };
+    // Gambar dari viewfinder sudah bersaiz dan dimampatkan; terus muat naik tanpa mampatan kedua.
+    if (prepared) { delete job.file; Object.assign(job, { compressed: file, width: prepared.width, height: prepared.height }); }
     try { await dbCall('queue', 'put', job); jobs.push(job); added++; } catch { toast('Storan tidak mencukupi. Sebahagian gambar belum ditambah.'); break; }
   }
   if (added) { queueHadWork = true; pump(); }
@@ -365,6 +374,7 @@ async function startStream() {
 async function openCamera() {
   if (!ready) { toast('Album sedang disediakan. Sila cuba sebentar lagi.'); return; }
   if (filmLeft() === 0) { toast(`Filem anda sudah habis. Terima kasih kerana berkongsi ${CONFIG.filmLimit} kenangan!`); openSheet('mine'); return; }
+  void fontsReady(); // Fon templat dimuat awal supaya shutter pertama tidak menunggu.
   cameraEl.hidden = false; document.body.classList.add('camera-open');
   requestAnimationFrame(() => cameraEl.classList.add('open'));
   if (history.state?.camera !== true) history.pushState({ camera: true }, '');
@@ -569,7 +579,8 @@ async function developFrame() {
   if (template === 'klasik') drawKlasik(ctx, w, h);
   else if (template === 'polaroid') canvas = drawPolaroid(photo, w, h);
   else if (template === 'filem') canvas = drawFilem(photo, w, h, frameNo);
-  return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', .92));
+  const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', CONFIG.jpegQuality));
+  return { blob, width: canvas.width, height: canvas.height };
 }
 $('#shutter').addEventListener('click', async () => {
   if (shooting) return;
@@ -579,12 +590,13 @@ $('#shutter').addEventListener('click', async () => {
   [$('#flash'), $('#iris')].forEach(el => { el.classList.remove('go'); void el.offsetWidth; el.classList.add('go'); });
   cameraEl.classList.add('snap');
   try {
-    const blob = await developFrame();
+    const shot = await developFrame(), blob = shot.blob;
     if (!blob) throw new Error('Gambar gagal diambil.');
     const preview = document.createElement('img'); const url = URL.createObjectURL(blob); preview.src = url;
     preview.onload = () => setTimeout(() => URL.revokeObjectURL(url), 4000);
     $('#cam-last').replaceChildren(preview); $('#cam-last').classList.remove('drop'); void $('#cam-last').offsetWidth; $('#cam-last').classList.add('drop');
-    await enqueue([new File([blob], `kenangan-${Date.now()}.jpg`, { type: 'image/jpeg' })]);
+    const fits = Math.max(shot.width, shot.height) <= CONFIG.maxImageEdge;
+    await enqueue([new File([blob], `kenangan-${Date.now()}.jpg`, { type: 'image/jpeg' })], fits ? shot : null);
     if (filmLeft() === 0) setTimeout(() => { closeCamera(); celebrate(); toast('Filem terakhir! Terima kasih jadi photographer kami ❤️'); }, 900);
   } catch { toast('Gambar gagal diambil. Cuba lagi.'); }
   finally { setTimeout(() => { shooting = false; cameraEl.classList.remove('snap'); }, 650); }
@@ -616,7 +628,11 @@ $$('[data-open]').forEach(b => b.addEventListener('click', () => openSheet(b.dat
 /* ---------- Galeri ----------
    Thumbnail sahaja dimuatkan dalam grid; fail penuh dibaca apabila lightbox dibuka. */
 let photos = [], nextCursor = null, currentTab = 'all', loadingGallery = false, galleryEpoch = 0, lightboxIndex = 0, fullImageUrl = null, lightboxToken = 0;
-const thumbnailUrls = new Map();
+const thumbnailUrls = new Map(), photoNodes = new Map(), galleryMemory = new Map();
+const galleryCache = {
+  get: tab => galleryMemory.get(tab) || cache.get(`photos-${tab}`),
+  set(tab, result) { galleryMemory.set(tab, result); cache.set(`photos-${tab}`, result); }
+};
 function thumbnailUrl(photo) {
   if (photo.thumbnailUrl) return photo.thumbnailUrl;
   if (!thumbnailUrls.has(photo.id)) thumbnailUrls.set(photo.id, URL.createObjectURL(photo.thumbnail || photo.blob));
@@ -634,21 +650,43 @@ function appendPhoto(photo, prepend = false) {
   const name = document.createElement('span'); name.className = 'by'; name.textContent = photo.guestName || 'Tetamu';
   button.append(frame, name);
   button.addEventListener('click', () => openLightbox(photos.findIndex(p => p.id === photo.id)));
+  photoNodes.set(photo.id, button);
   prepend ? $('#gallery-grid').prepend(button) : $('#gallery-grid').append(button);
   if (imageObserver) imageObserver.observe(img); else img.src = img.dataset.src;
+}
+function showGallery(result) {
+  imageObserver?.disconnect(); $('#gallery-grid').replaceChildren(); photos = []; photoNodes.clear();
+  thumbnailUrls.forEach(url => URL.revokeObjectURL(url)); thumbnailUrls.clear(); $('#new-photos').hidden = true;
+  result.items.forEach(photo => { appendPhoto(photo); photos.push(photo); });
+  nextCursor = result.nextCursor;
+}
+function showSkeleton() {
+  showGallery({ items: [], nextCursor: null });
+  $('#gallery-grid').append(...Array.from({ length: 6 }, () => { const tile = document.createElement('span'); tile.className = 'gallery-item skeleton'; tile.innerHTML = '<span class="frame"></span>'; return tile; }));
+}
+// Selaras dengan senarai terkini: buang gambar yang disorok, tambah gambar baharu di atas tanpa melukis semula grid.
+function syncGallery(result) {
+  const fresh = new Set(result.items.map(p => p.id));
+  photos = photos.filter(p => { if (fresh.has(p.id)) return true; photoNodes.get(p.id)?.remove(); photoNodes.delete(p.id); return false; });
+  result.items.filter(p => !photoNodes.has(p.id)).reverse().forEach(p => { appendPhoto(p, true); photos.unshift(p); });
+  nextCursor = result.nextCursor; $('#new-photos').hidden = true;
 }
 async function loadGallery(reset = false) {
   if (loadingGallery) return; if (!reset && !nextCursor) return;
   loadingGallery = true; const epoch = galleryEpoch, tab = currentTab;
+  const cached = reset && galleryCache.get(tab);
+  if (reset) { cached ? showGallery(cached) : showSkeleton(); $('#empty-state').hidden = !cached || photos.length > 0; $('#load-more').hidden = true; }
   try {
     const result = await api.listPhotos({ cursor: reset ? null : nextCursor, limit: CONFIG.pageSize, mine: tab === 'mine' });
     if (epoch !== galleryEpoch) return;
-    if (reset) { imageObserver?.disconnect(); $('#gallery-grid').replaceChildren(); photos = []; thumbnailUrls.forEach(url => URL.revokeObjectURL(url)); thumbnailUrls.clear(); $('#new-photos').hidden = true; }
-    result.items.forEach(photo => { if (!photos.some(p => p.id === photo.id)) { appendPhoto(photo); photos.push(photo); } });
-    nextCursor = result.nextCursor;
+    if (reset) { galleryCache.set(tab, result); cached ? syncGallery(result) : showGallery(result); }
+    else { result.items.forEach(photo => { if (!photos.some(p => p.id === photo.id)) { appendPhoto(photo); photos.push(photo); } }); nextCursor = result.nextCursor; }
     $('#empty-state').hidden = photos.length > 0;
     $('#load-more').hidden = !nextCursor;
-  } catch { toast('Album belum dapat dimuatkan. Semak sambungan dan cuba lagi.'); }
+  } catch {
+    if (reset && !cached && epoch === galleryEpoch) { showGallery({ items: [], nextCursor: null }); $('#empty-state').hidden = false; }
+    toast('Album belum dapat dimuatkan. Semak sambungan dan cuba lagi.');
+  }
   finally { loadingGallery = false; if (epoch !== galleryEpoch && sheetView) void loadGallery(true); }
 }
 async function checkNewPhotos(insert = false) {
@@ -668,9 +706,9 @@ if ('IntersectionObserver' in window) new IntersectionObserver(entries => { if (
 async function refreshCounts() {
   try {
     const all = await api.listPhotos({ limit: CONFIG.pageSize });
+    galleryCache.set('all', all);
     $('#all-count').textContent = all.items.length ? `${all.items.length}${all.nextCursor ? '+' : ''} gambar` : '';
   } catch { /* Kiraan pilihan sahaja. */ }
-  $('#mine-count').textContent = filmUsed ? `${filmUsed}/${CONFIG.filmLimit}` : '';
 }
 
 /* ---------- Lightbox ---------- */
@@ -679,8 +717,12 @@ function releaseFullImage() { if (fullImageUrl) { URL.revokeObjectURL(fullImageU
 function openLightbox(index) {
   if (!photos.length) return;
   lightboxIndex = (index + photos.length) % photos.length; const photo = photos[lightboxIndex]; lightboxToken++; releaseFullImage();
-  const url = photo.url || (fullImageUrl = URL.createObjectURL(photo.blob));
-  const image = $('#lightbox-image'); image.classList.remove('in'); image.src = url; image.onload = () => image.classList.add('in');
+  const url = photo.url || (fullImageUrl = URL.createObjectURL(photo.blob)), token = lightboxToken;
+  // Thumbnail (sudah dalam cache) dipapar dahulu, kemudian ditukar kepada resolusi penuh apabila siap.
+  const image = $('#lightbox-image'); image.classList.remove('in'); image.onload = () => image.classList.add('in');
+  image.src = photo.thumbnailUrl || url;
+  if (photo.thumbnailUrl) { const full = new Image(); full.onload = () => { if (token === lightboxToken) image.src = url; }; full.src = url; }
+  [1, -1].forEach(step => { const near = photos[(lightboxIndex + step + photos.length) % photos.length]; if (near?.url) new Image().src = near.url; });
   $('#lightbox-name').textContent = photo.guestName || 'Tetamu';
   $('#lightbox-time').textContent = new Intl.DateTimeFormat('ms-MY', { dateStyle: 'medium', timeStyle: 'short', timeZone: CONFIG.timezone }).format(new Date(photo.createdAt));
   $('#lightbox-counter').textContent = `${lightboxIndex + 1} / ${photos.length}`;
@@ -713,11 +755,11 @@ $('#share-photo').addEventListener('click', async () => {
 
 /* ---------- Ucapan ----------
    Disimpan dalam Sheet "Ucapan". Semua teks dimasukkan melalui textContent. */
-let wishes = [];
+let wishes = cache.get('wishes') || [];
 const wishTime = iso => new Intl.DateTimeFormat('ms-MY', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: CONFIG.timezone }).format(new Date(iso));
 function renderWishes() {
   $('#wish-list').replaceChildren(...wishes.map((wish, i) => {
-    const item = document.createElement('li'); item.className = 'wish-card'; item.style.setProperty('--i', Math.min(i, 10));
+    const item = document.createElement('li'); item.className = 'wish-card'; item.style.setProperty('--i', Math.min(i, 10)); item.classList.toggle('pending', !!wish.pending);
     const text = document.createElement('p'); text.textContent = wish.message;
     const meta = document.createElement('footer');
     const name = document.createElement('strong'); name.textContent = wish.name;
@@ -727,22 +769,33 @@ function renderWishes() {
   $('#wish-empty').hidden = wishes.length > 0;
   $('#wish-count-tile').textContent = wishes.length ? `${wishes.length}` : '';
 }
-async function loadWishes() { try { wishes = await api.listWishes(); renderWishes(); } catch { /* Kekalkan senarai sedia ada. */ } }
+async function loadWishes() {
+  try {
+    const fresh = await api.listWishes(); cache.set('wishes', fresh);
+    wishes = [...wishes.filter(w => w.pending && !fresh.some(f => f.id === w.id)), ...fresh]; renderWishes();
+  } catch { /* Kekalkan senarai sedia ada. */ }
+}
 $('#wish-name').value = guestName;
 $('#wish-message').addEventListener('input', e => { $('#wish-count').textContent = `${e.target.value.length}/500`; });
 $('#wish-form').addEventListener('submit', async event => {
   event.preventDefault();
-  const name = $('#wish-name').value.trim(), message = $('#wish-message').value.trim(), button = $('#wish-form button[type=submit]');
+  const name = $('#wish-name').value.trim(), message = $('#wish-message').value.trim();
   if (!name || !message) { toast('Sila isi nama dan ucapan anda.'); return; }
-  button.disabled = true; button.textContent = 'Menghantar…';
+  // Ucapan dipapar serta-merta; pelayan mengesahkannya di belakang tabir.
+  const draft = { id: makeId(), name, message, createdAt: new Date().toISOString(), pending: true };
+  wishes = [draft, ...wishes]; renderWishes();
+  $('#wish-message').value = ''; $('#wish-count').textContent = '0/500';
+  if (!guestName) { guestName = name; storage.set('walimah-name', name); nameInput.value = name; }
+  toast('Terima kasih atas ucapan dan doa anda ❤️'); celebrate();
   try {
-    const saved = await api.addWish({ id: makeId(), name, message });
-    wishes = [saved, ...wishes.filter(w => w.id !== saved.id)]; renderWishes();
-    $('#wish-message').value = ''; $('#wish-count').textContent = '0/500';
-    if (!guestName) { guestName = name; storage.set('walimah-name', name); nameInput.value = name; }
-    toast('Terima kasih atas ucapan dan doa anda ❤️'); celebrate();
-  } catch (error) { toast(error.code ? error.message : 'Ucapan belum dapat dihantar. Semak sambungan dan cuba lagi.'); }
-  finally { button.disabled = false; button.textContent = 'Hantar ucapan'; }
+    const saved = await api.addWish({ id: draft.id, name, message });
+    wishes = wishes.map(w => (w.id === draft.id ? saved : w)); renderWishes();
+    cache.set('wishes', wishes.filter(w => !w.pending));
+  } catch (error) {
+    wishes = wishes.filter(w => w.id !== draft.id); renderWishes();
+    if (!$('#wish-message').value) { $('#wish-message').value = message; $('#wish-count').textContent = `${message.length}/500`; }
+    toast(error.code ? error.message : 'Ucapan belum dapat dihantar. Semak sambungan dan cuba lagi.');
+  }
 });
 
 /* ---------- QR (Model 2, versi 5-L, 106 bait, Reed–Solomon) ----------
@@ -786,13 +839,13 @@ if (slideshowMode) {
 
 /* ---------- Mula ---------- */
 async function init() {
-  renderFilm();
+  renderFilm(); renderWishes();
   try {
     await database;
     jobs = (await dbCall('queue', 'getAll')).map(job => ({ ...job, status: job.status === 'failed' ? 'failed' : 'waiting', progress: 0, nextRetry: 0 }));
     ready = true; updateQueue(); pump();
     if (slideshowMode) await pollSlides();
-    else { await syncFilm(); void loadWishes(); void refreshCounts(); }
+    else await Promise.all([syncFilm(), loadWishes(), refreshCounts()]);
   } catch { toast('Storan pelayar tidak tersedia. Benarkan storan untuk menggunakan album.'); }
 }
 void init();

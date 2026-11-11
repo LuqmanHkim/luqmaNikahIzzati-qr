@@ -402,8 +402,12 @@ img { display: block; max-width: 100%; }
 .iris.go { animation: iris .42s cubic-bezier(.7, 0, .3, 1); }
 .flash { z-index: 6; }
 /* Album: gambar "dicuci" dari putih ke sepia ke warna penuh */
-.gallery-item img { filter: brightness(2.3) sepia(.9) saturate(.2) blur(3px); transition: opacity .6s var(--ease), filter 2.4s var(--ease), transform 1.4s var(--ease); }
+.gallery-item img { filter: brightness(2.3) sepia(.9) saturate(.2) blur(3px); transition: opacity .4s var(--ease), filter 1.1s var(--ease), transform .8s var(--ease); }
 .gallery-item img.loaded { filter: none; }
+/* Kotak sementara ketika album dimuatkan */
+.gallery-item.skeleton { pointer-events: none; }
+.gallery-item.skeleton .frame { animation: pulse 1.2s ease-in-out infinite alternate; }
+.wish-card.pending { opacity: .6; }
 
 /* ---------- Viewfinder & templat gambar ----------
    .vf-box mengikut nisbah gambar akhir; --u = 1 unit asas gambar dalam cqw kotak. */
@@ -460,6 +464,7 @@ img { display: block; max-width: 100%; }
 .camera-open .upload-pill { top: calc(86px + env(safe-area-inset-top)); bottom: auto; }
 
 /* ---------- Animasi ---------- */
+@keyframes pulse { from { opacity: .45; } to { opacity: 1; } }
 @keyframes float { 0% { transform: translate(0, 0) scale(.6); opacity: 0; } 15% { opacity: var(--o); } 55% { transform: translate(var(--sway), -50vh) scale(1); } 85% { opacity: calc(var(--o) * .5); } 100% { transform: translate(calc(var(--sway) * -.6), -100vh) scale(.8); opacity: 0; } }
 @keyframes shimmer { 0%, 55% { background-position: 100% 0; } 85%, 100% { background-position: 0 0; } }
 @keyframes frame-in { from { opacity: 0; transform: translateY(10px) scale(.6); } }
