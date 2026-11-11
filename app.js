@@ -10,8 +10,8 @@ const CONFIG = Object.freeze({
   frameLine: 'WALIMATULURUS · 14.11.2026',
   cover: 'cover.jpg',            // Gambar pengantin; jika tiada, monogram dipaparkan
   timezone: 'Asia/Kuala_Lumpur',
-  shareUrl: '',                  // URL GitHub Pages untuk QR paparan slaid
-  API_BASE_URL: '',
+  shareUrl: 'https://luqmanhkim.github.io/luqmaNikahIzzati-qr/', // URL GitHub Pages untuk QR paparan slaid
+  API_BASE_URL: 'https://script.google.com/macros/s/AKfycbyRWstRHt4o--uO1H6tA7lRVVGH88i16mluNb_BqkmzQ4NdRVSFMPqbnyxRhOKNcs0/exec',
   filmLimit: 10,                 // Mesti sama dengan FILM_LIMIT dalam apps-script/Code.gs
   uploadConcurrency: 2, pageSize: 40, pollMs: 20000,
   maxImageEdge: 2048, thumbnailEdge: 400, jpegQuality: 0.82

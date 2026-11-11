@@ -1,9 +1,10 @@
 /* Backend album Luqman & Izzati — Google Apps Script + Google Drive + Google Sheet.
-   Skrip ini mesti dicipta dari Google Sheet (Extensions → Apps Script) supaya
-   getActiveSpreadsheet() merujuk Sheet tersebut. Lihat SETUP.md untuk langkah penuh.
+   Jalankan setup dari editor sebelum deploy. Jika skrip dicipta dari Sheet,
+   SPREADSHEET_ID boleh dikosongkan. Lihat SETUP.md untuk langkah penuh.
    Deploy: Web app · Execute as: Me · Who has access: Anyone. */
 
 const FOLDER_ID = '1xlx5zbmss0FW0NwjgNUNhn56qGuO5sWX'; // ID folder Drive untuk simpan gambar
+const SPREADSHEET_ID = '1O7HkQHy12tRORQx75ISPcZppknaJDqQqCwCPopBpzOw'; // ID Sheet album
 const FILM_LIMIT = 10;                 // Had gambar bagi setiap tetamu
 const WISH_LIMIT = 5;                  // Had ucapan bagi setiap tetamu
 const MAX_BYTES = 8 * 1024 * 1024;     // Saiz maksimum satu gambar selepas mampatan
@@ -159,8 +160,12 @@ function toWish_(r) {
 
 /* ---------- Bantuan ---------- */
 
-function sheet_(name, header) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
+function sheet_(name, header, ss) {
+  if (!ss) {
+    const id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID') || SPREADSHEET_ID;
+    if (!id) throw new Error('Jalankan setup dari editor Apps Script dahulu.');
+    ss = SpreadsheetApp.openById(id);
+  }
   let sheet = ss.getSheetByName(name);
   if (!sheet) { sheet = ss.insertSheet(name); sheet.appendRow(header); sheet.setFrozenRows(1); }
   return sheet;
@@ -196,7 +201,12 @@ function fail_(code, message, err) {
 
 /* Jalankan sekali dari editor untuk beri kebenaran Drive & Sheet sebelum deploy. */
 function setup() {
-  sheet_('Gambar', PHOTO_HEADER);
-  sheet_('Ucapan', WISH_HEADER);
-  console.log('Folder: ' + DriveApp.getFolderById(FOLDER_ID).getName());
+  const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  if (!ss) throw new Error('Isi SPREADSHEET_ID atau buka Extensions → Apps Script dari Google Sheet album.');
+  const folderName = DriveApp.getFolderById(FOLDER_ID).getName();
+  sheet_('Gambar', PHOTO_HEADER, ss);
+  sheet_('Ucapan', WISH_HEADER, ss);
+  PropertiesService.getScriptProperties().setProperty('SPREADSHEET_ID', ss.getId());
+  console.log('Sheet: ' + ss.getName());
+  console.log('Folder: ' + folderName);
 }
