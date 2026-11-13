@@ -108,6 +108,13 @@ async function dbCall(store, operation, value) {
     tx.onabort = () => reject(tx.error || new Error('Storan tidak mencukupi.'));
   });
 }
+/* Giliran disimpan supaya muat naik boleh disambung selepas laman ditutup. Jika storan gagal
+   (pelayar dalam aplikasi, mod peribadi, ruang penuh), gambar tetap dimuat naik dari memori. */
+async function saveJob(job) {
+  if (job.memoryOnly) return;
+  try { await dbCall('queue', 'put', job); } catch { job.memoryOnly = true; }
+}
+async function forgetJob(id) { try { await dbCall('queue', 'delete', id); } catch { /* Dibersihkan pada lawatan seterusnya. */ } }
 
 /* ---------- API ----------
    Google Apps Script: POST tanpa header tersuai (text/plain) supaya tiada preflight CORS.
@@ -225,7 +232,7 @@ function updateQueue() {
       if (url) img.src = url;
       const label = document.createElement('span');
       const retry = document.createElement('button'); retry.textContent = 'Cuba semula'; retry.hidden = true;
-      retry.addEventListener('click', async () => { job.status = 'waiting'; job.attempts = 0; job.nextRetry = 0; try { await dbCall('queue', 'put', job); pump(); } catch { toast('Storan tidak tersedia. Cuba buka semula album.'); } updateQueue(); });
+      retry.addEventListener('click', async () => { job.status = 'waiting'; job.attempts = 0; job.nextRetry = 0; await saveJob(job); pump(); });
       node.append(img, label, retry); tray.append(node); trayNodes.set(job.id, node);
     }
     node.hidden = job.status === 'done';
@@ -249,26 +256,26 @@ function updateQueue() {
 async function runJob(job) {
   activeUploads++; job.status = 'uploading'; queueHadWork = true; updateQueue();
   try {
-    await dbCall('queue', 'put', job);
+    await saveJob(job);
     const data = job.compressed ? { blob: job.compressed, thumbnail: job.thumbnail, width: job.width, height: job.height } : await compress(job.file);
     Object.assign(job, { compressed: data.blob, thumbnail: data.thumbnail, width: data.width, height: data.height, progress: 40 });
-    await dbCall('queue', 'put', job); updateQueue();
+    await saveJob(job); updateQueue();
     await api.uploadPhoto(job, data);
-    await dbCall('queue', 'delete', job.id);
+    await forgetJob(job.id);
     job.status = 'done'; job.progress = 100; filmUsed++;
     delete job.file; delete job.compressed; delete job.thumbnail;
     if (sheetView === 'mine' || sheetView === 'all') await checkNewPhotos(true);
   } catch (error) {
     if (error.code === 'film_habis') {
       job.status = 'failed'; job.reason = 'film'; filmUsed = CONFIG.filmLimit; delete job.file; delete job.compressed;
-      try { await dbCall('queue', 'delete', job.id); } catch { /* Dibersihkan pada lawatan seterusnya. */ }
+      await forgetJob(job.id);
       toast(`Filem anda sudah habis. Terima kasih kerana berkongsi ${CONFIG.filmLimit} kenangan!`);
       return;
     }
     job.attempts = (job.attempts || 0) + (navigator.onLine ? 1 : 0);
     job.status = job.attempts >= 5 ? 'failed' : 'waiting';
     job.nextRetry = Date.now() + Math.min(30000, 1000 * 2 ** job.attempts);
-    try { await dbCall('queue', 'put', job); } catch { job.status = 'failed'; toast('Storan pelayar penuh atau tidak tersedia. Sila cuba semula.'); }
+    await saveJob(job);
   } finally { activeUploads--; updateQueue(); pump(); }
 }
 function pump() {
@@ -320,7 +327,7 @@ async function enqueue(files, prepared = null) {
     const job = { id: makeId(), name: file.name, file, guestName, createdAt: new Date().toISOString(), status: 'waiting', attempts: 0, nextRetry: 0, progress: 0 };
     // Gambar dari viewfinder sudah bersaiz dan dimampatkan; terus muat naik tanpa mampatan kedua.
     if (prepared) { delete job.file; Object.assign(job, { compressed: file, width: prepared.width, height: prepared.height }); }
-    try { await dbCall('queue', 'put', job); jobs.push(job); added++; } catch { toast('Storan tidak mencukupi. Sebahagian gambar belum ditambah.'); break; }
+    await saveJob(job); jobs.push(job); added++;
   }
   if (added) { queueHadWork = true; pump(); }
   return added;
@@ -840,13 +847,12 @@ if (slideshowMode) {
 /* ---------- Mula ---------- */
 async function init() {
   renderFilm(); renderWishes();
-  try {
-    await database;
-    jobs = (await dbCall('queue', 'getAll')).map(job => ({ ...job, status: job.status === 'failed' ? 'failed' : 'waiting', progress: 0, nextRetry: 0 }));
-    ready = true; updateQueue(); pump();
-    if (slideshowMode) await pollSlides();
-    else await Promise.all([syncFilm(), loadWishes(), refreshCounts()]);
-  } catch { toast('Storan pelayar tidak tersedia. Benarkan storan untuk menggunakan album.'); }
+  // Sambung giliran yang tertangguh; tanpa storan, album tetap berfungsi (mod demo sahaja memerlukannya).
+  try { jobs = (await dbCall('queue', 'getAll')).map(job => ({ ...job, status: job.status === 'failed' ? 'failed' : 'waiting', progress: 0, nextRetry: 0 })); }
+  catch { if (!CONFIG.API_BASE_URL) { toast('Storan pelayar tidak tersedia. Benarkan storan untuk menggunakan album.'); return; } }
+  ready = true; updateQueue(); pump();
+  if (slideshowMode) await pollSlides();
+  else await Promise.all([syncFilm(), loadWishes(), refreshCounts()]);
 }
 void init();
 setInterval(() => { if (!slideshowMode) void checkNewPhotos(); }, CONFIG.pollMs);
